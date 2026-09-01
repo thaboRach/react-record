@@ -27,7 +27,6 @@ jobs:
         with:
           runtime: node@24
           cache: true
-          install: true
 
       - name: Run Lint
         run: pnpm lint
