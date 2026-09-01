@@ -34,10 +34,10 @@ function App() {
   };
 
   return (
-    <main className="font-roboto flex min-h-screen flex-col items-center gap-8 p-24 bg-indigo-100 text-slate-600">
-      <h1 className="text-3xl font-bold">Audio Recording</h1>
+    <main className="font-roboto flex min-h-screen flex-col items-center gap-8 p-8 md:p-24 bg-indigo-100 text-slate-600 w-full">
+      <h1 className="text-3xl font-bold text-center">Audio Recording</h1>
 
-      <Card className="flex flex-col items-center gap-4 min-w-150">
+      <Card className="flex flex-col items-center gap-4 w-full max-w-150">
         <section
           className={`flex flex-col items-center gap-2 ${recordingStatus === 'idle' || recordingStatus === 'stopped' ? 'mb-8' : 'mb-0'}`}
         >
