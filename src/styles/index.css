@@ -1,0 +1,70 @@
+@import 'tailwindcss';
+
+@font-face {
+  font-family: 'Roboto-Thin';
+  src:
+    local('Roboto-Thin'),
+    url('./fonts/Roboto-Thin.woff2') format('woff2');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto-Light';
+  src:
+    local('Roboto-Light'),
+    url('./fonts/Roboto-Light.woff2') format('woff2');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto-Regular';
+  src:
+    local('Roboto-Regular'),
+    url('./fonts/Roboto-Regular.woff2') format('woff2');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto-Medium';
+  src:
+    local('Roboto-Medium'),
+    url('./fonts/Roboto-Medium.woff2') format('woff2');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto-SemiBold';
+  src:
+    local('Roboto-SemiBold'),
+    url('./fonts/Roboto-SemiBold.woff2') format('woff2');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto-Bold';
+  src:
+    local('Roboto-Bold'),
+    url('./fonts/Roboto-Bold.woff2') format('woff2');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto-Black';
+  src:
+    local('Roboto-Black'),
+    url('./fonts/Roboto-Black.woff2') format('woff2');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto-ExtraBold';
+  src:
+    local('Roboto-ExtraBold'),
+    url('./fonts/Roboto-ExtraBold.woff2') format('woff2');
+  font-display: swap;
+}
+
+@theme {
+  /* This creates the utility class: font-roboto */
+  --font-roboto: 'Roboto', sans-serif;
+}
