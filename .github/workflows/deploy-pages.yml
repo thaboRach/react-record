@@ -18,14 +18,18 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [24]
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node & pnpm
         uses: pnpm/setup@v2
         with:
-          runtime: node@24
+          runtime: node@${{ matrix.node-version }}
           cache: true
 
       - name: Run Lint
