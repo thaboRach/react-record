@@ -2,7 +2,17 @@ import { useState, useRef, useEffect } from 'react';
 import { set, del, get } from 'idb-keyval';
 import type { RecordingStatus } from '../types/recordingStatus';
 
-export function useAudioRecorder() {
+type UseAudioRecorderOptions = {
+  on5MBPartReady?: (partBlob: Blob, partNumber: number) => Promise<void>;
+  onStreamChunk?: (chunk: Blob) => void; // Live WebSocket streaming
+};
+
+const S3_MIN_PART_SIZE = 5 * 1024 * 1024; // 5 MB
+
+export function useAudioRecorder({
+  on5MBPartReady,
+  onStreamChunk,
+}: UseAudioRecorderOptions) {
   const [recordingStatus, setRecordingStatus] =
     useState<RecordingStatus>('idle');
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -15,6 +25,8 @@ export function useAudioRecorder() {
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(
     undefined
   );
+  const currentSizeRef = useRef<number>(0);
+  const partNumberRef = useRef<number>(1);
 
   const startTimer = () => {
     clearInterval(timerRef.current);
@@ -40,6 +52,9 @@ export function useAudioRecorder() {
   const startRecording = async () => {
     try {
       chunksRef.current = [];
+      currentSizeRef.current = 0;
+      partNumberRef.current = 1;
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
@@ -52,8 +67,28 @@ export function useAudioRecorder() {
       const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+      recorder.ondataavailable = async (e) => {
+        if (e.data.size <= 0) return;
+
+        // 1. Live Streaming Callback support for websockets
+        onStreamChunk?.(e.data);
+
+        // 2. S3 Buffer logic
+        chunksRef.current.push(e.data);
+        currentSizeRef.current += e.data.size;
+
+        // 3. Trigger S3 upload when buffer exceeds 5MB
+        if (currentSizeRef.current >= S3_MIN_PART_SIZE) {
+          const partBlob = new Blob(chunksRef.current, { type: mimeType });
+          const partNum = partNumberRef.current;
+
+          // Reset buffers before firing async trigger
+          chunksRef.current = [];
+          currentSizeRef.current = 0;
+          partNumberRef.current += 1;
+
+          await on5MBPartReady?.(partBlob, partNum);
+        }
       };
 
       recorder.onstart = () => {
@@ -78,13 +113,17 @@ export function useAudioRecorder() {
       recorder.onstop = async () => {
         setRecordingStatus('stopped');
 
-        const blob = new Blob(chunksRef.current, { type: mimeType });
-        setAudioBlob(blob);
+        if (chunksRef.current.length > 0) {
+          const blob = new Blob(chunksRef.current, { type: mimeType });
+          setAudioBlob(blob);
 
-        // Instantly save to IndexedDB for offline resilience
-        await set('pending_audio_recording', blob);
+          await on5MBPartReady?.(blob, partNumberRef.current);
 
-        // Stop microphone track hardware lights
+          // Instantly save to IndexedDB for offline resilience
+          await set('pending_audio_recording', blob); // TODO: might need to remove
+        }
+
+        // Stop microphone hardware stream to free resources
         stream.getTracks().forEach((track) => track.stop());
       };
 
@@ -117,11 +156,6 @@ export function useAudioRecorder() {
     ) {
       mediaRecorderRef.current.stop();
       console.info('Recording stopped, audio saved to IndexedDB.');
-
-      // Stop mic hardware stream
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
     }
   };
 
