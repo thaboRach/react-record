@@ -2,10 +2,14 @@ import { Pause, Play, Square } from 'lucide-react';
 import Card from '../components/Card';
 import IconButton from '../components/IconButton';
 import { useAudioRecorder } from '../hooks/useAudioRecoder';
-import { formatTime } from '../utils';
+import { formatTime } from '../utils/helpers';
 import LinkButton from '../components/LinkButton';
+import { useS3AudioUpload } from '../hooks/useS3AudioUpload';
 
 function App() {
+  const { startSession, completeSession, handle5MBPartReady } =
+    useS3AudioUpload();
+
   const {
     startRecording,
     stopRecording,
@@ -14,13 +18,14 @@ function App() {
     pauseRecording,
     resumeRecording,
     downloadAudio,
-  } = useAudioRecorder();
+  } = useAudioRecorder({ on5MBPartReady: handle5MBPartReady });
 
-  const handleStartPauseClick = () => {
+  const handleStartPauseClick = async () => {
     switch (recordingStatus) {
       case 'idle':
       case 'stopped':
-        startRecording();
+        await startSession(); // Start a new S3 upload session
+        await startRecording();
         break;
       case 'recording':
         pauseRecording();
@@ -30,6 +35,18 @@ function App() {
         break;
       default:
         console.warn('Unknown recording status:', recordingStatus);
+    }
+  };
+
+  const handleStopRecording = async () => {
+    stopRecording();
+
+    try {
+      await completeSession();
+      alert('Audio uploaded to S3 successfully!');
+    } catch (err) {
+      console.error('Upload complete error:', err);
+      alert('Recording stopped. Unsent chunks saved to IndexedDB for retry.');
     }
   };
 
@@ -68,7 +85,7 @@ function App() {
             )}
           </IconButton>
 
-          <IconButton onClick={stopRecording}>
+          <IconButton onClick={handleStopRecording}>
             <Square className=" text-red-600 fill-red-600" />
           </IconButton>
         </section>
