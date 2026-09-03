@@ -63,9 +63,16 @@ export const IDB = {
    */
   async getOrphanedSessions(): Promise<ActiveSession[]> {
     const all = await entries();
+    const uploadIdsWithChunks = new Set(
+      all
+        .filter(([key]) => typeof key === 'string' && key.startsWith('chunk_'))
+        .map(([_, value]) => (value as StoredChunk).uploadId)
+    );
+
     return all
       .filter(([k]) => typeof k === 'string' && k.startsWith('session_'))
-      .map(([_, v]) => v as ActiveSession);
+      .map(([_, v]) => v as ActiveSession)
+      .filter((session) => !uploadIdsWithChunks.has(session.uploadId));
   },
 
   /**
@@ -75,7 +82,10 @@ export const IDB = {
   async clearSession(uploadId: string) {
     const all = await entries();
     for (const [key] of all) {
-      if (typeof key === 'string' && key.includes(uploadId)) {
+      if (
+        key === `session_${uploadId}` ||
+        (typeof key === 'string' && key.startsWith(`chunk_${uploadId}_part_`))
+      ) {
         await del(key);
       }
     }

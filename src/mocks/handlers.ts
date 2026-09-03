@@ -1,4 +1,4 @@
-import { delay, http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse, ws } from 'msw';
 
 // In-memory state to simulate S3 bucket behavior
 const activeUploads = new Map<
@@ -14,7 +14,49 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
+const liveAudioStream = ws.link('wss://your-websocket-url');
+
+const liveAudioHandler = liveAudioStream.addEventListener(
+  'connection',
+  ({ client }) => {
+    let streamStarted = false;
+    let pendingSequence: number | null = null;
+
+    client.addEventListener('message', async ({ data }) => {
+      if (typeof data === 'string') {
+        const message = JSON.parse(data) as {
+          type?: string;
+          sequence?: number;
+        };
+
+        if (message.type === 'start') {
+          streamStarted = true;
+          return;
+        }
+
+        if (
+          streamStarted &&
+          message.type === 'audio' &&
+          typeof message.sequence === 'number'
+        ) {
+          pendingSequence = message.sequence;
+        }
+        return;
+      }
+
+      if (!streamStarted || pendingSequence === null) return;
+
+      const sequence = pendingSequence;
+      pendingSequence = null;
+      await delay(100);
+      client.send(JSON.stringify({ type: 'ack', sequence }));
+    });
+  }
+);
+
 export const handlers = [
+  liveAudioHandler,
+
   // POST - /api/s3/create-multipart
   http.post('/api/s3/create-multipart', () => {
     const uploadId = `mock-upload-${Date.now()}`;
@@ -61,9 +103,10 @@ export const handlers = [
       );
 
       // Force Part 2 to fail once to test retry/IndexedDB mechanics
-      // if (partNumber === 2 && Math.random() < 0.5) {
-      //   return HttpResponse.error(); // Simulates a network drop / offline state
-      // }
+      if (partNumber === 2 && Math.random() < 0.5) {
+        console.info('Simulating network drop for part 2');
+        return HttpResponse.error(); // Simulates a network drop / offline state
+      }
 
       // Read the binary 5MB blob payload
       const audioBlob = await request.blob();

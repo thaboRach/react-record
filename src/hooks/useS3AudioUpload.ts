@@ -72,7 +72,15 @@ export function useS3AudioUpload() {
     },
   });
 
-  // Handle Incoming 5MB Chunk
+  /**
+   * Handles a 5MB audio chunk that is ready for upload.
+   * Saves the chunk to IndexedDB and processes the upload queue.
+   *
+   * @async
+   * @param {Blob} blob - The 5MB audio chunk to be uploaded.
+   * @param {number} partNumber - The part number of the chunk within the multipart upload.
+   * @returns {*}
+   */
   const handle5MBPartReady = async (blob: Blob, partNumber: number) => {
     if (!sessionRef.current) return;
 

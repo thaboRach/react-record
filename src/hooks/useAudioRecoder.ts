@@ -18,6 +18,7 @@ export function useAudioRecorder({
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [seconds, setSeconds] = useState<number>(0);
   const [mimeType, setMimeType] = useState<string>('audio/webm;codecs=opus');
+  const [recordingSizeBytes, setRecordingSizeBytes] = useState(0);
 
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -54,17 +55,21 @@ export function useAudioRecorder({
       chunksRef.current = [];
       currentSizeRef.current = 0;
       partNumberRef.current = 1;
+      setRecordingSizeBytes(0);
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      setMimeType(
-        MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/mp4'
-      );
+      const selectedMimeType = MediaRecorder.isTypeSupported(
+        'audio/webm;codecs=opus'
+      )
+        ? 'audio/webm;codecs=opus'
+        : 'audio/mp4';
+      setMimeType(selectedMimeType);
 
-      const recorder = new MediaRecorder(stream, { mimeType });
+      const recorder = new MediaRecorder(stream, {
+        mimeType: selectedMimeType,
+      });
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = async (e) => {
@@ -76,10 +81,13 @@ export function useAudioRecorder({
         // 2. S3 Buffer logic
         chunksRef.current.push(e.data);
         currentSizeRef.current += e.data.size;
+        setRecordingSizeBytes((previousBytes) => previousBytes + e.data.size);
 
         // 3. Trigger S3 upload when buffer exceeds 5MB
         if (currentSizeRef.current >= S3_MIN_PART_SIZE) {
-          const partBlob = new Blob(chunksRef.current, { type: mimeType });
+          const partBlob = new Blob(chunksRef.current, {
+            type: selectedMimeType,
+          });
           const partNum = partNumberRef.current;
 
           // Reset buffers before firing async trigger
@@ -114,13 +122,13 @@ export function useAudioRecorder({
         setRecordingStatus('stopped');
 
         if (chunksRef.current.length > 0) {
-          const blob = new Blob(chunksRef.current, { type: mimeType });
+          const blob = new Blob(chunksRef.current, { type: selectedMimeType });
           setAudioBlob(blob);
 
           await on5MBPartReady?.(blob, partNumberRef.current);
 
           // Instantly save to IndexedDB for offline resilience
-          await set('pending_audio_recording', blob); // TODO: might need to remove
+          await set('pending_audio_recording', blob);
         }
 
         // Stop microphone hardware stream to free resources
@@ -202,6 +210,7 @@ export function useAudioRecorder({
   return {
     recordingStatus,
     audioBlob,
+    recordingSizeBytes,
     startRecording,
     pauseRecording,
     resumeRecording,

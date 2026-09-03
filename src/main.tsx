@@ -6,6 +6,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import './styles/index.css';
 
 import swUrl from './utils/sw.js?url';
+import { Toaster } from 'react-hot-toast';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ enableMocking().then(() => {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <App />
+        <Toaster />
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </StrictMode>
